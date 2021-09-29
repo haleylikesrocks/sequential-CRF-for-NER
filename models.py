@@ -69,7 +69,42 @@ class HmmNerModel(object):
         :param sentence_tokens: List of the tokens in the sentence to tag
         :return: The LabeledSentence consisting of predictions over the sentence
         """
-        raise Exception("IMPLEMENT ME")
+        matrix = []
+        pred_tags = []
+        print(sentence_tokens[:5])
+        count = 0
+
+        word_index = self.word_indexer.index_of(sentence_tokens[0].word)
+        
+        # initial probs
+        for i in range(len(self.init_log_probs)):
+            matrix.append([self.init_log_probs[i] + self.emission_log_probs[i][word_index]])
+        # convert to index
+
+        for token in sentence_tokens:
+            if count == 0 :
+                count += 1
+                next
+            word_index = self.word_indexer.index_of(token.word)
+            for fixed_i in range(len(self.init_log_probs)):
+                all_tags = []
+                for dynamic_i in range(len(self.init_log_probs)):
+                    all_tags.append([self.init_log_probs[dynamic_i] + self.emission_log_probs[fixed_i][word_index] + self.transition_log_probs[dynamic_i][fixed_i]])
+                good_tag = max(all_tags)
+                matrix[fixed_i].append(good_tag[0])
+        print(matrix)
+
+       #get word tag index of word
+       #sent word tage index to emission probabity matrix
+
+        #     if tok.word in self.words_to_tag_counters:
+                
+        #         # [0] selects the top most common (tag, count) pair, the next [0] picks out the tag itself
+        #         pred_tags.append(self.words_to_tag_counters[tok.word].most_common(1)[0][0])
+        #     else:
+        #         pred_tags.append("O")
+        # return LabeledSentence(sentence_tokens, chunks_from_bio_tag_seq(pred_tags))
+
 
 
 def train_hmm_model(sentences: List[LabeledSentence], silent: bool=False) -> HmmNerModel:

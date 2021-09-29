@@ -42,6 +42,7 @@ class Indexer(object):
         """
         return self.index_of(object) != -1
 
+
     def index_of(self, object):
         """
         :param object: object to look up
