@@ -71,28 +71,36 @@ class HmmNerModel(object):
         """
         matrix = []
         pred_tags = []
-        print(sentence_tokens[:5])
-        count = 0
+        best_indices=[]
+        num_tags = len(self.init_log_probs)
+        for x in range(num_tags):
+            best_indices.append([])
 
+        # initial probs 
         word_index = self.word_indexer.index_of(sentence_tokens[0].word)
-        
-        # initial probs
         for i in range(len(self.init_log_probs)):
             matrix.append([self.init_log_probs[i] + self.emission_log_probs[i][word_index]])
-        # convert to index
 
-        for token in sentence_tokens:
-            if count == 0 :
-                count += 1
-                next
-            word_index = self.word_indexer.index_of(token.word)
-            for fixed_i in range(len(self.init_log_probs)):
+
+        for token in range(1, len(sentence_tokens)):
+            word_index = self.word_indexer.index_of(sentence_tokens[token].word)
+            for fixed_i in range(num_tags):
                 all_tags = []
-                for dynamic_i in range(len(self.init_log_probs)):
-                    all_tags.append([self.init_log_probs[dynamic_i] + self.emission_log_probs[fixed_i][word_index] + self.transition_log_probs[dynamic_i][fixed_i]])
+                for dynamic_i in range(num_tags):
+                    all_tags.append(matrix[fixed_i][-1] + self.emission_log_probs[fixed_i][word_index] + self.transition_log_probs[fixed_i][dynamic_i])
                 good_tag = max(all_tags)
-                matrix[fixed_i].append(good_tag[0])
-        print(matrix)
+                best_index = np.argmax(np.array(all_tags))
+                best_indices[fixed_i].append(best_index)
+                matrix[fixed_i].append(good_tag)
+        # finding the best sent
+        final_scores = []
+        for score_list in matrix:
+            final_scores.append(score_list[-1])
+        best_score = np.argmax(np.array(final_scores))
+
+        for tag in best_indices[best_score]:
+            pred_tags.append(self.tag_indexer.get_object(tag))    
+        print(pred_tags)
 
        #get word tag index of word
        #sent word tage index to emission probabity matrix
