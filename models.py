@@ -72,22 +72,24 @@ class HmmNerModel(object):
         matrix = []
         pred_tags = []
         best_indices=[]
+        setence = []
         num_tags = len(self.init_log_probs)
         for x in range(num_tags):
             best_indices.append([])
 
         # initial probs 
         word_index = self.word_indexer.index_of(sentence_tokens[0].word)
+        setence.append(sentence_tokens[0].word)
         for i in range(len(self.init_log_probs)):
             matrix.append([self.init_log_probs[i] + self.emission_log_probs[i][word_index]])
-
-
+        # 
         for token in range(1, len(sentence_tokens)):
+            setence.append(sentence_tokens[token].word)
             word_index = self.word_indexer.index_of(sentence_tokens[token].word)
             for fixed_i in range(num_tags):
                 all_tags = []
                 for dynamic_i in range(num_tags):
-                    all_tags.append(matrix[fixed_i][-1] + self.emission_log_probs[fixed_i][word_index] + self.transition_log_probs[fixed_i][dynamic_i])
+                    all_tags.append(matrix[dynamic_i][-1] + self.emission_log_probs[fixed_i][word_index] + self.transition_log_probs[dynamic_i][fixed_i])
                 good_tag = max(all_tags)
                 best_index = np.argmax(np.array(all_tags))
                 best_indices[fixed_i].append(best_index)
@@ -102,17 +104,8 @@ class HmmNerModel(object):
             pred_tags.append(self.tag_indexer.get_object(tag))    
         print(pred_tags)
 
-       #get word tag index of word
-       #sent word tage index to emission probabity matrix
-
-        #     if tok.word in self.words_to_tag_counters:
-                
-        #         # [0] selects the top most common (tag, count) pair, the next [0] picks out the tag itself
-        #         pred_tags.append(self.words_to_tag_counters[tok.word].most_common(1)[0][0])
-        #     else:
-        #         pred_tags.append("O")
-        # return LabeledSentence(sentence_tokens, chunks_from_bio_tag_seq(pred_tags))
-
+        labeled_sent = LabeledSentence(setence, chunks_from_bio_tag_seq(pred_tags))
+        return labeled_sent
 
 
 def train_hmm_model(sentences: List[LabeledSentence], silent: bool=False) -> HmmNerModel:
