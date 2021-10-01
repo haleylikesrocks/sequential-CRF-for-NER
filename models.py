@@ -104,8 +104,7 @@ class HmmNerModel(object):
         # convert index to tag
         for tag in best_indices[best_score]:
             pred_tags.append(self.tag_indexer.get_object(tag))    
-        # print(pred_tags)
-        print(len(pred_tags), len(sentence_tokens))
+
         return LabeledSentence(setence, chunks_from_bio_tag_seq(pred_tags))
 
 
