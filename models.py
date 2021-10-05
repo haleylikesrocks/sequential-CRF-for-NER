@@ -69,47 +69,35 @@ class HmmNerModel(object):
         :param sentence_tokens: List of the tokens in the sentence to tag
         :return: The LabeledSentence consisting of predictions over the sentence
         """
-        matrix = []
         pred_tags = []
-        best_indices=[]
-        setence = []
         num_tags = len(self.init_log_probs)
-        sent_len = len(sentence_tokens)
+        matrix = np.empty((num_tags, len(sentence_tokens)))
 
-        # initial probs 
-        word_index = self.word_indexer.index_of(sentence_tokens[0].word)
-        if word_index == -1:
-            word_index = self.word_indexer.index_of("UNK")
-        setence.append(sentence_tokens[0].word)
-        for i in range(len(self.init_log_probs)):
-            matrix.append([self.init_log_probs[i] + self.emission_log_probs[i][word_index]])
-
-        # subsequent probs
-        for token in range(1, len(sentence_tokens)):
-            setence.append(sentence_tokens[token].word) 
+        for token in range(len(sentence_tokens)):
+            # get word index
             word_index = self.word_indexer.index_of(sentence_tokens[token].word)
             if word_index == -1:
                 word_index = self.word_indexer.index_of("UNK")
-            for current_i in range(num_tags):
-                all_tags = []
-                for prev_i in range(num_tags):
-                    all_tags.append(matrix[prev_i][-1] + self.emission_log_probs[current_i, word_index] + self.transition_log_probs[prev_i, current_i])
-                good_tag = max(all_tags)
-                # print(good_tag)
-                matrix[current_i].append(good_tag)
-                   
-        # finding the best sentence through back pass
-        for option in range(-1, -1 * sent_len - 1, -1):
-            final_scores = []
-            for score_list in matrix:
-                final_scores.append(score_list[option])
-            best_score = np.argmax(np.array(final_scores))
-            best_indices.insert(0, best_score)
-        # convert index to tag
-        for tag in best_indices:
-            pred_tags.append(self.tag_indexer.get_object(tag))
+            # initial probalities
+            if token == 0:
+                for i in range(num_tags):
+                    matrix[i][0] = self.init_log_probs[i] + self.emission_log_probs[i][word_index]
+            # subsequent
+            else:
+                for current_i in range(num_tags):
+                    tags_for_i = [matrix[prev_i, token-1] + self.transition_log_probs[prev_i, current_i] for prev_i in range(num_tags)]
+                    print(tags_for_i)
+                    matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + self.emission_log_probs[current_i, word_index]
 
-        return LabeledSentence(setence, chunks_from_bio_tag_seq(pred_tags))
+            print(sentence_tokens[token].word, matrix)   
+        # # finding the best sentence through back pass
+        # best_indices = np.where(matrix == np.amax(matrix, 0))[0]#
+
+        # # convert index to tag
+        # for tag in best_indices:
+        #     pred_tags.append(self.tag_indexer.get_object(tag))
+
+        return LabeledSentence(sentence_tokens, chunks_from_bio_tag_seq(pred_tags))
 
 
 def train_hmm_model(sentences: List[LabeledSentence], silent: bool=False) -> HmmNerModel:
