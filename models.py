@@ -86,16 +86,14 @@ class HmmNerModel(object):
             else:
                 for current_i in range(num_tags):
                     tags_for_i = [matrix[prev_i, token-1] + self.transition_log_probs[prev_i, current_i] for prev_i in range(num_tags)]
-                    print(tags_for_i)
                     matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + self.emission_log_probs[current_i, word_index]
-
-            print(sentence_tokens[token].word, matrix)   
-        # # finding the best sentence through back pass
-        # best_indices = np.where(matrix == np.amax(matrix, 0))[0]#
+ 
+        # finding the best sentence through back pass
+        best_indices = np.argmax(matrix, 0)
 
         # # convert index to tag
-        # for tag in best_indices:
-        #     pred_tags.append(self.tag_indexer.get_object(tag))
+        for tag in best_indices:
+            pred_tags.append(self.tag_indexer.get_object(tag))
 
         return LabeledSentence(sentence_tokens, chunks_from_bio_tag_seq(pred_tags))
 
