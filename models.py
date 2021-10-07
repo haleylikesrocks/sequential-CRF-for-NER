@@ -203,7 +203,7 @@ class FeatureBasedSequenceScorer(object):
 
     def score_emission(self, sentence_tokens, tag_idx, word_posn):
         feats = self.feat_cache[word_posn][tag_idx]
-        return self.feature_weights.score(feats)
+        return self.feature_weights.score(feats) # feature * weigth
 
 
 class CrfNerModel(object):
@@ -218,7 +218,38 @@ class CrfNerModel(object):
         :param sentence_tokens: List of the tokens in the sentence to tag
         :return: The LabeledSentence consisting of predictions over the sentence
         """
-        raise Exception("IMPLEMENT ME")
+        pred_tags = []
+        num_tags = len(self.tag_indexer)
+        matrix = np.empty((num_tags, len(sentence_tokens)))
+        #whenevr you have a new sentence
+        #extract emission features
+        #nad training score
+        #weight from feature_weigth
+
+        # for token in range(len(sentence_tokens)):
+        #     # get word index
+        #     word_index = self.word_indexer.index_of(sentence_tokens[token].word)
+        #     if word_index == -1:
+        #         word_index = self.word_indexer.index_of("UNK")
+        #     # initial probalities
+        #     if token == 0:
+        #         for i in range(num_tags):
+        #             matrix[i][0] = self.init_log_probs[i] + self.emission_log_probs[i][word_index]
+        #     # subsequent
+        #     else:
+        #         for current_i in range(num_tags):
+        #             tags_for_i = [matrix[prev_i, token-1] + self.transition_log_probs[prev_i, current_i] for prev_i in range(num_tags)]
+        #             matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + self.emission_log_probs[current_i, word_index]
+ 
+        # # finding the best sentence through back pass
+        # best_indices = np.argmax(matrix, 0)
+
+        # # # convert index to tag
+        # for tag in best_indices:
+        #     pred_tags.append(self.tag_indexer.get_object(tag))
+
+        return LabeledSentence(sentence_tokens, chunks_from_bio_tag_seq(pred_tags))
+
 
     def decode_beam(self, sentence_tokens: List[Token]) -> LabeledSentence:
         """
@@ -329,7 +360,7 @@ def extract_emission_features(sentence_tokens: List[Token], word_index: int, tag
     return np.asarray(feats, dtype=int)
 
 
-def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: FeatureBasedSequenceScorer, feature_indexer: Indexer) -> (float, Counter):
+def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: FeatureBasedSequenceScorer, feature_indexer: Indexer):# -> (float, Counter):
     """
     Computes the gradient of the given example (sentence). The bulk of this code will be computing marginals via
     forward-backward: you should first compute these marginals, then accumulate the gradient based on the log
@@ -345,4 +376,26 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
     The second value is a Counter containing the gradient -- this is a sparse map from indices (features)
     to weights (gradient values).
     """
-    raise Exception("IMPLEMENT ME")
+    # take sum of gold features over i
+    # bio_tags = sentence.get_bio_tags()
+    full_feat = np.array([])
+    for word_idx in range(len(sentence)):
+        # do i need the zeros ? 
+        gold_tag_index = tag_indexer.index_of(sentence.get_bio_tags()[word_idx])
+        # scorer.feat_cache[word_idx][gold_tag_index]
+        full_feat = np.append(full_feat, scorer.feat_cache[word_idx][gold_tag_index])
+    
+    # 
+    # calculate the marg8nal prob using forward back ward
+    a = np.exp()
+
+    # calcualte emssion features
+
+    # gold - marginal * emmission
+
+    # print(Counter(full_feat))
+
+    # gold = Counter(full_feat)
+
+    # gold.subtract() # will just change from gold will not assign anything (changes in place)
+

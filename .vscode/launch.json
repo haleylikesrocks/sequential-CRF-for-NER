@@ -11,6 +11,14 @@
       "program": "ner.py",
       "console": "integratedTerminal",
       "args": ["--model", "HMM"]
+    },
+    {
+      "name": "NER CRF",
+      "type": "python",
+      "request": "launch",
+      "program": "ner.py",
+      "console": "integratedTerminal",
+      "args": ["--model", "CRF", "--inference", "BOTH", "--train_path", "data/eng_try.train"]
     }
   ]
 }
