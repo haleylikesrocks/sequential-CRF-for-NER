@@ -11,6 +11,7 @@ from collections import Counter
 from typing import List
 
 import numpy as np
+from scipy.special import logsumexp
 
 
 class ProbabilisticSequenceScorer(object):
@@ -230,35 +231,44 @@ class CrfNerModel(object):
         :param sentence_tokens: List of the tokens in the sentence to tag
         :return: The LabeledSentence consisting of predictions over the sentence
         """
+        return -1
         pred_tags = []
-        num_tags = len(self.tag_indexer)
-        matrix = np.empty((num_tags, len(sentence_tokens)))
-        #whenevr you have a new sentence
-        #extract emission features
-        #nad training score
-        #weight from feature_weigth
+        num_tags = len(self.init_log_probs)
+        matrix = np.zeros((num_tags, len(sentence_tokens)))
+        prev = np.zeros((num_tags, len(sentence_tokens) - 1))
 
-        # for token in range(len(sentence_tokens)):
-        #     # get word index
-        #     word_index = self.word_indexer.index_of(sentence_tokens[token].word)
-        #     if word_index == -1:
-        #         word_index = self.word_indexer.index_of("UNK")
-        #     # initial probalities
-        #     if token == 0:
-        #         for i in range(num_tags):
-        #             matrix[i][0] = self.init_log_probs[i] + self.emission_log_probs[i][word_index]
-        #     # subsequent
-        #     else:
-        #         for current_i in range(num_tags):
-        #             tags_for_i = [matrix[prev_i, token-1] + self.transition_log_probs[prev_i, current_i] for prev_i in range(num_tags)]
-        #             matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + self.emission_log_probs[current_i, word_index]
- 
-        # # finding the best sentence through back pass
-        # best_indices = np.argmax(matrix, 0)
+        for token in range(len(sentence_tokens)):
+            # get word index
+            word_index = self.word_indexer.index_of(sentence_tokens[token].word)
+            if word_index == -1:
+                word_index = self.word_indexer.index_of("UNK")
+            # initial probalities
+            if token == 0:
+                for i in range(num_tags):
+                    matrix[i][0] = self.init_log_probs[i] + self.emission_log_probs[i][word_index]
+            # subsequent
+            else:
+                for current_i in range(num_tags):
+                    tags_for_i = [matrix[prev_i, token-1] + self.transition_log_probs[prev_i, current_i] for prev_i in range(num_tags)]
+                    matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + self.emission_log_probs[current_i, word_index]
+                    prev[current_i, token-1] = np.argmax(tags_for_i)
 
-        # # # convert index to tag
-        # for tag in best_indices:
-        #     pred_tags.append(self.tag_indexer.get_object(tag))
+        # finding the best sentence through back pass
+        last_sate = np.argmax(matrix, 0)[-1]
+        best_indices = np.zeros(len(sentence_tokens))
+        best_indices[0] = last_sate
+
+        back_track = 1
+        for i in range(len(sentence_tokens) - 2, -1, -1):
+            best_indices[back_track] = prev[int(last_sate), i]
+            last_sate = prev[int(last_sate), i]
+            back_track += 1
+
+        best_indices =  np.flip(best_indices, 0)
+
+        # # convert index to tag
+        for tag in best_indices:
+            pred_tags.append(self.tag_indexer.get_object(tag))
 
         return LabeledSentence(sentence_tokens, chunks_from_bio_tag_seq(pred_tags))
 
@@ -397,17 +407,53 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
         # scorer.feat_cache[word_idx][gold_tag_index]
         full_feat = np.append(full_feat, scorer.feat_cache[word_idx][gold_tag_index])
     
-    # 
-    # calculate the marg8nal prob using forward back ward
-    a = np.exp()
+      # calculate the marginal prob using forward back ward
+    num_tags = len(tag_indexer)
+    alpha_matrix = np.empty((num_tags, len(sentence)))
+
+    for idx in range(len(sentence)):
+        # initial potential
+        if idx == 0:
+            for i in range(num_tags):
+                alpha_matrix[i][0] = np.exp(scorer.score_emission(sentence, i, idx))
+                print(scorer.score_emission(sentence, i, idx))
+        # subsequent
+        else:
+            for current_i in range(num_tags):
+                tags_for_i = [alpha_matrix[prev_i, idx-1] * scorer.score_transition(sentence, prev_i, current_i) * (scorer.score_emission(sentence, current_i, idx) )for prev_i in range(num_tags)]
+                alpha_matrix[current_i][idx] = logsumexp(tags_for_i, 0)
+        # print(alpha_matrix)
+    #backeard pass
+    beta_matrix = np.zeros((num_tags, len(sentence)))
+
+    for idx in range(-1, -1 * len(sentence) - 1, -1):
+        # initial potential
+        if idx == -1:
+            for i in range(num_tags):
+                beta_matrix[i][idx] = 1.0
+        # subsequent
+        else:
+            for current_i in range(num_tags):
+                tags_for_i = [alpha_matrix[prev_i, idx + 1] * scorer.score_transition(sentence, prev_i, current_i) * (scorer.score_emission(sentence, current_i, idx) )for prev_i in range(num_tags)]
+                beta_matrix[current_i][idx] = logsumexp(tags_for_i, 0)
+        # print(beta_matrix)
 
     # calcualte emssion features
+    denominators = np.sum(np.multiply(alpha_matrix, beta_matrix), 0)
+    emission_feat = np.array([])
+    for word_idx in range(len(sentence)):
+        for tag_idx in range(num_tags):
+        # scorer.feat_cache[word_idx][gold_tag_index]
 
-    # gold - marginal * emmission
+            numerator = alpha_matrix[tag_idx][word_idx] * beta_matrix[tag_idx][word_idx] 
+            denominator = denominators[word_idx]
+            emission_feat = np.append(emission_feat, numerator / denominator * scorer.score_emission(sentence, tag_idx, word_idx))  
+    
+    marginal = Counter(emission_feat)
+    gold = Counter(full_feat)
 
-    # print(Counter(full_feat))
+    print(gold)
+    print(marginal)
+    gold.subtract(marginal)
 
-    # gold = Counter(full_feat)
-
-    # gold.subtract() # will just change from gold will not assign anything (changes in place)
-
+    return (probs, gold)  # will just change from gold will not assign anything (changes in place)
