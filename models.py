@@ -71,7 +71,8 @@ class HmmNerModel(object):
         """
         pred_tags = []
         num_tags = len(self.init_log_probs)
-        matrix = np.empty((num_tags, len(sentence_tokens)))
+        matrix = np.zeros((num_tags, len(sentence_tokens)))
+        prev = np.zeros((num_tags, len(sentence_tokens) - 1))
 
         for token in range(len(sentence_tokens)):
             # get word index
@@ -87,9 +88,20 @@ class HmmNerModel(object):
                 for current_i in range(num_tags):
                     tags_for_i = [matrix[prev_i, token-1] + self.transition_log_probs[prev_i, current_i] for prev_i in range(num_tags)]
                     matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + self.emission_log_probs[current_i, word_index]
+                    prev[current_i, token-1] = np.argmax(tags_for_i)
  
         # finding the best sentence through back pass
-        best_indices = np.argmax(matrix, 0)
+        last_sate = np.argmax(matrix, 0)[-1]
+        best_indices = np.zeros(len(sentence_tokens))
+        best_indices[0] = last_sate
+
+        back_track = 1
+        for i in range(len(sentence_tokens) - 2, -1, -1):
+            best_indices[back_track] = prev[int(last_sate), i]
+            last_sate = prev[int(last_sate), i]
+            back_track += 1
+
+        best_indices =  np.flip(best_indices, 0)
 
         # # convert index to tag
         for tag in best_indices:
