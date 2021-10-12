@@ -231,34 +231,28 @@ class CrfNerModel(object):
         :param sentence_tokens: List of the tokens in the sentence to tag
         :return: The LabeledSentence consisting of predictions over the sentence
         """
-
         #calculate feature chache
-        feat_cache = []
-        for word in sentence_tokens:
-            gold_tag_index = tag_indexer.index_of(sentence.get_bio_tags()[word_idx])
-        # scorer.feat_cache[word_idx][gold_tag_index]
-        full_feat = np.append(full_feat, scorer.feat_cache[word_idx][gold_tag_index])
+        feature_cache = [[[] for k in range(0, len(self.tag_indexer))] for i in range(0, len(sentence_tokens))]
+        for word_idx in range(0, len(sentence_tokens)):
+            for tag_idx in range(0, len(self.tag_indexer)):
+                feature_cache[word_idx][tag_idx] = extract_emission_features(sentence_tokens, word_idx, self.tag_indexer.get_object(tag_idx), self.feature_indexer, add_to_indexer=True)
+        scorer = FeatureBasedSequenceScorer(self.tag_indexer, self.feature_weights, feature_cache)
 
-        return -1
         pred_tags = []
-        num_tags = len(self.init_log_probs)
+        num_tags = len(self.tag_indexer)
         matrix = np.zeros((num_tags, len(sentence_tokens)))
         prev = np.zeros((num_tags, len(sentence_tokens) - 1))
 
         for token in range(len(sentence_tokens)):
-            # get word index
-            word_index = self.word_indexer.index_of(sentence_tokens[token].word)
-            if word_index == -1:
-                word_index = self.word_indexer.index_of("UNK")
             # initial probalities
             if token == 0:
                 for i in range(num_tags):
-                    matrix[i][0] = self.init_log_probs[i] + self.emission_log_probs[i][word_index]
+                    matrix[i][0] = scorer.score_init(sentence_tokens, i)
             # subsequent
             else:
                 for current_i in range(num_tags):
-                    tags_for_i = [matrix[prev_i, token-1] + self.transition_log_probs[prev_i, current_i] for prev_i in range(num_tags)]
-                    matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + self.emission_log_probs[current_i, word_index]
+                    tags_for_i = [matrix[prev_i, token-1] + scorer.score_transition(sentence_tokens, prev_i, current_i) for prev_i in range(num_tags)]
+                    matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + scorer.score_emission(sentence_tokens, current_i, token)
                     prev[current_i, token-1] = np.argmax(tags_for_i)
 
         # finding the best sentence through back pass
@@ -287,7 +281,49 @@ class CrfNerModel(object):
         :param sentence_tokens: List of the tokens in the sentence to tag
         :return: The LabeledSentence consisting of predictions over the sentence
         """
-        raise Exception("IMPLEMENT ME")
+        beam = Beam(2)
+
+        #calculate feature chache
+        feature_cache = [[[] for k in range(0, len(self.tag_indexer))] for i in range(0, len(sentence_tokens))]
+        for word_idx in range(0, len(sentence_tokens)):
+            for tag_idx in range(0, len(self.tag_indexer)):
+                feature_cache[word_idx][tag_idx] = extract_emission_features(sentence_tokens, word_idx, self.tag_indexer.get_object(tag_idx), self.feature_indexer, add_to_indexer=True)
+        scorer = FeatureBasedSequenceScorer(self.tag_indexer, self.feature_weights, feature_cache)
+
+        pred_tags = []
+        num_tags = len(self.tag_indexer)
+        matrix = np.zeros((num_tags, len(sentence_tokens)))
+        prev = np.zeros((num_tags, len(sentence_tokens) - 1))
+
+        for token in range(len(sentence_tokens)):
+            # initial probalities
+            if token == 0:
+                for i in range(num_tags):
+                    matrix[i][0] = scorer.score_init(sentence_tokens, i)
+            # subsequent
+            else:
+                for current_i in range(num_tags):
+                    tags_for_i = [matrix[prev_i, token-1] + scorer.score_transition(sentence_tokens, prev_i, current_i) for prev_i in range(num_tags)]
+                    matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + scorer.score_emission(sentence_tokens, current_i, token)
+                    prev[current_i, token-1] = np.argmax(tags_for_i)
+
+        # finding the best sentence through back pass
+        last_sate = np.argmax(matrix, 0)[-1]
+        best_indices = np.zeros(len(sentence_tokens))
+        best_indices[0] = last_sate
+
+        back_track = 1
+        for i in range(len(sentence_tokens) - 2, -1, -1):
+            best_indices[back_track] = prev[int(last_sate), i]
+            last_sate = prev[int(last_sate), i]
+            back_track += 1
+
+        best_indices =  np.flip(best_indices, 0)
+
+        # # convert index to tag
+        for tag in best_indices:
+            pred_tags.append(self.tag_indexer.get_object(tag))
+        return LabeledSentence(sentence_tokens, chunks_from_bio_tag_seq(pred_tags))
 
 
 def train_crf_model(sentences: List[LabeledSentence], silent: bool=False) -> CrfNerModel:
@@ -467,8 +503,8 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
     marginal = Counter(features)
     gold = Counter(full_feat.astype(int))
 
-    print(gold)
-    print(marginal)
+    # print(gold)
+    # print(marginal)
     gold.subtract(marginal)
 
     return  (probs, gold)  # will just change from gold will not assign anything (changes in place)
