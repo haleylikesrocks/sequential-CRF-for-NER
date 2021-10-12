@@ -300,12 +300,15 @@ class CrfNerModel(object):
             if token == 0:
                 for i in range(num_tags):
                     matrix[i][0] = scorer.score_init(sentence_tokens, i)
+                    #add to beam
+                    # we need to keep the element -> what is the element for the beam?
             # subsequent
             else:
                 for current_i in range(num_tags):
-                    tags_for_i = [matrix[prev_i, token-1] + scorer.score_transition(sentence_tokens, prev_i, current_i) for prev_i in range(num_tags)]
+                    tags_for_i = [matrix[prev_i, token-1] + scorer.score_transition(sentence_tokens, prev_i, current_i) for prev_i in range(num_tags)] # for prev_i in beam
                     matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + scorer.score_emission(sentence_tokens, current_i, token)
                     prev[current_i, token-1] = np.argmax(tags_for_i)
+                    # add to beam 
 
         # finding the best sentence through back pass
         last_sate = np.argmax(matrix, 0)[-1]
@@ -444,16 +447,17 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
     """
     # take sum of gold features over i
     # bio_tags = sentence.get_bio_tags()
-    probs = 0.0
+    # probs = 0.0
     full_feat = np.array([])
     for word_idx in range(len(sentence)):
         # do i need the zeros ? 
         gold_tag_index = tag_indexer.index_of(sentence.get_bio_tags()[word_idx])
         # scorer.feat_cache[word_idx][gold_tag_index]
         full_feat = np.append(full_feat, scorer.feat_cache[word_idx][gold_tag_index])
-        probs += sum([scorer.score_emission(sentence, gold_tag_index ,word_idx) for word_idx in range(len(sentence))])
     
-      # calculate the marginal prob using forward back ward
+    probs = sum([scorer.score_emission(sentence, tag_indexer.index_of(sentence.get_bio_tags()[i]) ,i) for i in range(len(sentence))])
+    
+    # calculate the marginal prob using forward back ward
     num_tags = len(tag_indexer)
     alpha_matrix = np.empty((num_tags, len(sentence)))
 
