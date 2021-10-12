@@ -448,20 +448,24 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
                 beta_matrix[current_i][idx] = logsumexp(tags_for_i, 0)
         # print(beta_matrix)
 
-    # calcualte emssion features
-    emission_feat = Counter()
+    # calcualte expected emssion features
     marginals = np.zeros((num_tags, len(sentence)))
     denominators = np.sum(np.multiply(alpha_matrix, beta_matrix), 0)
-    emission_feat = np.array([])
+    features = {}
+
     for word_idx in range(len(sentence)):
         for tag_idx in range(num_tags):
         # scorer.feat_cache[word_idx][gold_tag_index]
             marginals[tag_idx][word_idx] = alpha_matrix[tag_idx][word_idx] * beta_matrix[tag_idx][word_idx] / denominators[word_idx]
-            features = scorer.feat_cache[word_idx][tag_idx]
-            emission_feat = emission_feat + Counter([item=marginals[tag_idx][word_idx] for item in features])
+            
+            for feature in scorer.feat_cache[word_idx][tag_idx]:
+                if feature in features:
+                    features[feature] += marginals[tag_idx][word_idx]
+                else:
+                    features[feature] = marginals[tag_idx][word_idx]
 
-    marginal = Counter(emission_feat.astype(int))
-    gold = Counter(emission_feat.astype(int))
+    marginal = Counter(features)
+    gold = Counter(full_feat.astype(int))
 
     print(gold)
     print(marginal)
