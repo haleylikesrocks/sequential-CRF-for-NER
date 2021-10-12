@@ -231,6 +231,14 @@ class CrfNerModel(object):
         :param sentence_tokens: List of the tokens in the sentence to tag
         :return: The LabeledSentence consisting of predictions over the sentence
         """
+
+        #calculate feature chache
+        feat_cache = []
+        for word in sentence_tokens:
+            gold_tag_index = tag_indexer.index_of(sentence.get_bio_tags()[word_idx])
+        # scorer.feat_cache[word_idx][gold_tag_index]
+        full_feat = np.append(full_feat, scorer.feat_cache[word_idx][gold_tag_index])
+
         return -1
         pred_tags = []
         num_tags = len(self.init_log_probs)
@@ -400,12 +408,14 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
     """
     # take sum of gold features over i
     # bio_tags = sentence.get_bio_tags()
+    probs = 0.0
     full_feat = np.array([])
     for word_idx in range(len(sentence)):
         # do i need the zeros ? 
         gold_tag_index = tag_indexer.index_of(sentence.get_bio_tags()[word_idx])
         # scorer.feat_cache[word_idx][gold_tag_index]
         full_feat = np.append(full_feat, scorer.feat_cache[word_idx][gold_tag_index])
+        probs += sum([scorer.score_emission(sentence, gold_tag_index ,word_idx) for word_idx in range(len(sentence))])
     
       # calculate the marginal prob using forward back ward
     num_tags = len(tag_indexer)
@@ -416,14 +426,14 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
         if idx == 0:
             for i in range(num_tags):
                 alpha_matrix[i][0] = np.exp(scorer.score_emission(sentence, i, idx))
-                print(scorer.score_emission(sentence, i, idx))
+                # print(scorer.score_emission(sentence, i, idx))
         # subsequent
         else:
             for current_i in range(num_tags):
                 tags_for_i = [alpha_matrix[prev_i, idx-1] * scorer.score_transition(sentence, prev_i, current_i) * (scorer.score_emission(sentence, current_i, idx) )for prev_i in range(num_tags)]
                 alpha_matrix[current_i][idx] = logsumexp(tags_for_i, 0)
         # print(alpha_matrix)
-    #backeard pass
+    #backward pass
     beta_matrix = np.zeros((num_tags, len(sentence)))
 
     for idx in range(-1, -1 * len(sentence) - 1, -1):
@@ -439,21 +449,22 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
         # print(beta_matrix)
 
     # calcualte emssion features
+    emission_feat = Counter()
+    marginals = np.zeros((num_tags, len(sentence)))
     denominators = np.sum(np.multiply(alpha_matrix, beta_matrix), 0)
     emission_feat = np.array([])
     for word_idx in range(len(sentence)):
         for tag_idx in range(num_tags):
         # scorer.feat_cache[word_idx][gold_tag_index]
+            marginals[tag_idx][word_idx] = alpha_matrix[tag_idx][word_idx] * beta_matrix[tag_idx][word_idx] / denominators[word_idx]
+            features = scorer.feat_cache[word_idx][tag_idx]
+            emission_feat = emission_feat + Counter([item=marginals[tag_idx][word_idx] for item in features])
 
-            numerator = alpha_matrix[tag_idx][word_idx] * beta_matrix[tag_idx][word_idx] 
-            denominator = denominators[word_idx]
-            emission_feat = np.append(emission_feat, numerator / denominator * scorer.score_emission(sentence, tag_idx, word_idx))  
-    
-    marginal = Counter(emission_feat)
-    gold = Counter(full_feat)
+    marginal = Counter(emission_feat.astype(int))
+    gold = Counter(emission_feat.astype(int))
 
     print(gold)
     print(marginal)
     gold.subtract(marginal)
 
-    return (probs, gold)  # will just change from gold will not assign anything (changes in place)
+    return  (probs, gold)  # will just change from gold will not assign anything (changes in place)
