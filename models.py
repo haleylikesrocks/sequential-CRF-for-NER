@@ -500,15 +500,15 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
             
             for feature in scorer.feat_cache[word_idx][tag_idx]:
                 if feature in features:
-                    features[feature] += marginals[tag_idx][word_idx]
+                    features[feature] += marginals[tag_idx][word_idx] * scorer.score_emission(sentence, tag_idx, word_idx)
                 else:
-                    features[feature] = marginals[tag_idx][word_idx]
+                    features[feature] = marginals[tag_idx][word_idx] * scorer.score_emission(sentence, tag_idx, word_idx)
 
     marginal = Counter(features)
     gold = Counter(full_feat.astype(int))
 
-    # print(gold)
+    
     # print(marginal)
     gold.subtract(marginal)
-
+    # print(gold)
     return  (probs, gold)  # will just change from gold will not assign anything (changes in place)
