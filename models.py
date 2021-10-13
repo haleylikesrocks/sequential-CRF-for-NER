@@ -235,7 +235,7 @@ class CrfNerModel(object):
         feature_cache = [[[] for k in range(0, len(self.tag_indexer))] for i in range(0, len(sentence_tokens))]
         for word_idx in range(0, len(sentence_tokens)):
             for tag_idx in range(0, len(self.tag_indexer)):
-                feature_cache[word_idx][tag_idx] = extract_emission_features(sentence_tokens, word_idx, self.tag_indexer.get_object(tag_idx), self.feature_indexer, add_to_indexer=True)
+                feature_cache[word_idx][tag_idx] = extract_emission_features(sentence_tokens, word_idx, self.tag_indexer.get_object(tag_idx), self.feature_indexer, add_to_indexer=False)
         scorer = FeatureBasedSequenceScorer(self.tag_indexer, self.feature_weights, feature_cache)
 
         pred_tags = []
@@ -287,7 +287,7 @@ class CrfNerModel(object):
         feature_cache = [[[] for k in range(0, len(self.tag_indexer))] for i in range(0, len(sentence_tokens))]
         for word_idx in range(0, len(sentence_tokens)):
             for tag_idx in range(0, len(self.tag_indexer)):
-                feature_cache[word_idx][tag_idx] = extract_emission_features(sentence_tokens, word_idx, self.tag_indexer.get_object(tag_idx), self.feature_indexer, add_to_indexer=True)
+                feature_cache[word_idx][tag_idx] = extract_emission_features(sentence_tokens, word_idx, self.tag_indexer.get_object(tag_idx), self.feature_indexer, add_to_indexer=False)
         scorer = FeatureBasedSequenceScorer(self.tag_indexer, self.feature_weights, feature_cache)
 
         pred_tags = []
@@ -428,7 +428,7 @@ def extract_emission_features(sentence_tokens: List[Token], word_index: int, tag
     maybe_add_feature(feats, feature_indexer, add_to_indexer, tag + ":WordShape=" + repr(new_word))
     return np.asarray(feats, dtype=int)
 
-
+ 
 def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: FeatureBasedSequenceScorer, feature_indexer: Indexer):# -> (float, Counter):
     """
     Computes the gradient of the given example (sentence). The bulk of this code will be computing marginals via
