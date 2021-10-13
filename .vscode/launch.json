@@ -18,7 +18,7 @@
       "request": "launch",
       "program": "ner.py",
       "console": "integratedTerminal",
-      "args": ["--model", "CRF", "--inference", "BOTH", "--train_path", "data/eng_try.train", "--dev_path", "data/eng_try.train"]
+      "args": ["--model", "CRF", "--inference", "BEAM", "--train_path", "data/eng_try.train", "--dev_path", "data/eng_try.train"]
     }
   ]
 }

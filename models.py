@@ -281,7 +281,6 @@ class CrfNerModel(object):
         :param sentence_tokens: List of the tokens in the sentence to tag
         :return: The LabeledSentence consisting of predictions over the sentence
         """
-        beam = Beam(2)
 
         #calculate feature chache
         feature_cache = [[[] for k in range(0, len(self.tag_indexer))] for i in range(0, len(sentence_tokens))]
@@ -292,26 +291,27 @@ class CrfNerModel(object):
 
         pred_tags = []
         num_tags = len(self.tag_indexer)
-        matrix = np.zeros((num_tags, len(sentence_tokens)))
+        beam = Beam(2)
+        # matrix = np.zeros((num_tags, len(sentence_tokens)))
         prev = np.zeros((num_tags, len(sentence_tokens) - 1))
 
         for token in range(len(sentence_tokens)):
             # initial probalities
             if token == 0:
                 for i in range(num_tags):
-                    matrix[i][0] = scorer.score_init(sentence_tokens, i)
-                    #add to beam
-                    # we need to keep the element -> what is the element for the beam?
+                    beam.add(i, scorer.score_init(sentence_tokens, i))
             # subsequent
             else:
                 for current_i in range(num_tags):
-                    tags_for_i = [matrix[prev_i, token-1] + scorer.score_transition(sentence_tokens, prev_i, current_i) for prev_i in range(num_tags)] # for prev_i in beam
-                    matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + scorer.score_emission(sentence_tokens, current_i, token)
-                    prev[current_i, token-1] = np.argmax(tags_for_i)
+                    tags, scores = zip(*list(beam.get_elts_and_scores()))
+                    tags_for_i = [scores[prev_i] + scorer.score_transition(sentence_tokens, tags[prev_i], current_i) for prev_i in range(len(tags))] # for prev_i in beam
+                    beam.add(i, tags_for_i[np.argmax(tags_for_i)] + scorer.score_emission(sentence_tokens, current_i, token))
+                    prev[current_i, token-1] = tags[np.argmax(tags_for_i)]
                     # add to beam 
 
         # finding the best sentence through back pass
-        last_sate = np.argmax(matrix, 0)[-1]
+        tags, scores = zip(*beam.get_elts_and_scores())
+        last_sate = tags[np.argmax(np.array(scores))]
         best_indices = np.zeros(len(sentence_tokens))
         best_indices[0] = last_sate
 
