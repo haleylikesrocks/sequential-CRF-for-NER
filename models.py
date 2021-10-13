@@ -216,7 +216,7 @@ class FeatureBasedSequenceScorer(object):
 
     def score_emission(self, sentence_tokens, tag_idx, word_posn):
         feats = self.feat_cache[word_posn][tag_idx]
-        return self.feature_weights.score(feats) # feature * weigth
+        return self.feature_weights.score(feats) # feature * weigth # this is the isssue hear
 
 
 class CrfNerModel(object):
@@ -252,7 +252,7 @@ class CrfNerModel(object):
             else:
                 for current_i in range(num_tags):
                     tags_for_i = [matrix[prev_i, token-1] + scorer.score_transition(sentence_tokens, prev_i, current_i) for prev_i in range(num_tags)]
-                    matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + scorer.score_emission(sentence_tokens, current_i, token)
+                    matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + scorer.score_emission(sentence_tokens, current_i, token) # what to do if word no good
                     prev[current_i, token-1] = np.argmax(tags_for_i)
 
         # finding the best sentence through back pass
