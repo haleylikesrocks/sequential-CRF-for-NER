@@ -22,8 +22,8 @@
       "args": ["--model", "CRF", "--inference", "VITERBI", "--train_path", "data/eng_try.train", "--dev_path", "data/eng_try.train"]
     },
     {
-
-      "request": "launch",      "name": "test beam",
+      "name": "test beam",
+      "request": "launch",      
       "type": "python",
       "program": "ner.py",
       "console": "integratedTerminal",

@@ -448,15 +448,11 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
     to weights (gradient values).
     """
     # take sum of gold features over i
-    # bio_tags = sentence.get_bio_tags()
-    # probs = 0.0
     full_feat = np.array([])
     for word_idx in range(len(sentence)):
-        # do i need the zeros ? 
         gold_tag_index = tag_indexer.index_of(sentence.get_bio_tags()[word_idx])
-        # scorer.feat_cache[word_idx][gold_tag_index]
         full_feat = np.append(full_feat, scorer.feat_cache[word_idx][gold_tag_index])
-    
+
     probs = sum([scorer.score_emission(sentence, tag_indexer.index_of(sentence.get_bio_tags()[i]) ,i) for i in range(len(sentence))])
     
     # calculate the marginal prob using forward back ward
@@ -467,33 +463,30 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
         # initial potential
         if idx == 0:
             for i in range(num_tags):
-                alpha_matrix[i][0] = np.exp(scorer.score_emission(sentence, i, idx))
-                # print(scorer.score_emission(sentence, i, idx))
+                alpha_matrix[i][0] = scorer.score_emission(sentence, i, idx)
         # subsequent
         else:
             for current_i in range(num_tags):
                 tags_for_i = [alpha_matrix[prev_i, idx-1] * scorer.score_transition(sentence, prev_i, current_i) * (scorer.score_emission(sentence, current_i, idx) )for prev_i in range(num_tags)]
                 alpha_matrix[current_i][idx] = logsumexp(tags_for_i, 0)
-        # print(alpha_matrix)
+    print(alpha_matrix)
+
     #backward pass
     beta_matrix = np.zeros((num_tags, len(sentence)))
-
     for idx in range(-1, -1 * len(sentence) - 1, -1):
         # initial potential
         if idx == -1:
             for i in range(num_tags):
                 beta_matrix[i][idx] = 0.0
-        # subsequent
         else:
             for current_i in range(num_tags):
-                tags_for_i = [alpha_matrix[next_i, idx + 1] * scorer.score_transition(sentence, current_i, next_i) * (scorer.score_emission(sentence, current_i, idx) )for next_i in range(num_tags)]
-                beta_matrix[current_i][idx] = logsumexp(tags_for_i, 0)
-        # print(beta_matrix)
+                beta_matrix[current_i][idx] = logsumexp([beta_matrix[next_i, idx + 1] * scorer.score_transition(sentence, current_i, next_i) * (scorer.score_emission(sentence, current_i, idx) )for next_i in range(num_tags)], 0)
+    print(beta_matrix)
 
     # calcualte expected emssion features
     marginals = np.zeros((num_tags, len(sentence)))
-    denominators = logsumexp(np.add(alpha_matrix, beta_matrix), 0) # summ each column this is z - double check each column
-    #still need logsumexp arount arountd each column of alpha
+    denominators = logsumexp(np.add(alpha_matrix, beta_matrix), 0)
+    print(denominators)
     features = {} #marginal tags should sum to zero
 
     for word_idx in range(len(sentence)):
