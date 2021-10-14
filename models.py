@@ -480,23 +480,24 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
         # initial potential
         if idx == -1:
             for i in range(num_tags):
-                beta_matrix[i][idx] = 1.0
+                beta_matrix[i][idx] = 0.0
         # subsequent
         else:
             for current_i in range(num_tags):
-                tags_for_i = [alpha_matrix[prev_i, idx + 1] * scorer.score_transition(sentence, prev_i, current_i) * (scorer.score_emission(sentence, current_i, idx) )for prev_i in range(num_tags)]
+                tags_for_i = [alpha_matrix[next_i, idx + 1] * scorer.score_transition(sentence, current_i, next_i) * (scorer.score_emission(sentence, current_i, idx) )for next_i in range(num_tags)]
                 beta_matrix[current_i][idx] = logsumexp(tags_for_i, 0)
         # print(beta_matrix)
 
     # calcualte expected emssion features
     marginals = np.zeros((num_tags, len(sentence)))
-    denominators = np.sum(np.multiply(alpha_matrix, beta_matrix), 0)
-    features = {}
+    denominators = logsumexp(np.add(alpha_matrix, beta_matrix), 0) # summ each column this is z - double check each column
+    #still need logsumexp arount arountd each column of alpha
+    features = {} #marginal tags should sum to zero
 
     for word_idx in range(len(sentence)):
         for tag_idx in range(num_tags):
         # scorer.feat_cache[word_idx][gold_tag_index]
-            marginals[tag_idx][word_idx] = alpha_matrix[tag_idx][word_idx] * beta_matrix[tag_idx][word_idx] / denominators[word_idx]
+            marginals[tag_idx][word_idx] = np.exp(alpha_matrix[tag_idx][word_idx] + beta_matrix[tag_idx][word_idx] - denominators[word_idx])
             
             for feature in scorer.feat_cache[word_idx][tag_idx]:
                 if feature in features:
