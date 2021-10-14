@@ -469,7 +469,7 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
             for current_i in range(num_tags):
                 tags_for_i = [alpha_matrix[prev_i, idx-1] * scorer.score_transition(sentence, prev_i, current_i) * (scorer.score_emission(sentence, current_i, idx) )for prev_i in range(num_tags)]
                 alpha_matrix[current_i][idx] = logsumexp(tags_for_i, 0)
-    print(alpha_matrix)
+    # print(alpha_matrix)
 
     #backward pass
     beta_matrix = np.zeros((num_tags, len(sentence)))
@@ -481,7 +481,7 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
         else:
             for current_i in range(num_tags):
                 beta_matrix[current_i][idx] = logsumexp([beta_matrix[next_i, idx + 1] * scorer.score_transition(sentence, current_i, next_i) * (scorer.score_emission(sentence, current_i, idx) )for next_i in range(num_tags)], 0)
-    print(beta_matrix)
+    # print(beta_matrix)
 
     # calcualte expected emssion features
     marginals = np.zeros((num_tags, len(sentence)))
