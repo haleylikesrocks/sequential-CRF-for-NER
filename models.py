@@ -457,7 +457,7 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
     
     # calculate the marginal prob using forward back ward
     num_tags = len(tag_indexer)
-    alpha_matrix = np.empty((num_tags, len(sentence)))
+    alpha_matrix = np.zeros((num_tags, len(sentence)))
 
     for idx in range(len(sentence)):
         # initial potential
@@ -492,13 +492,13 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
     for word_idx in range(len(sentence)):
         for tag_idx in range(num_tags):
         # scorer.feat_cache[word_idx][gold_tag_index]
-            marginals[tag_idx][word_idx] = np.exp(alpha_matrix[tag_idx][word_idx] + beta_matrix[tag_idx][word_idx] - denominators[word_idx])
+            marginals[tag_idx][word_idx] = alpha_matrix[tag_idx][word_idx] + beta_matrix[tag_idx][word_idx] - denominators[word_idx]
             
             for feature in scorer.feat_cache[word_idx][tag_idx]:
                 if feature in features:
-                    features[feature] += marginals[tag_idx][word_idx] * scorer.score_emission(sentence, tag_idx, word_idx)
+                    features[feature] += np.exp(marginals[tag_idx][word_idx] + scorer.score_emission(sentence, tag_idx, word_idx))
                 else:
-                    features[feature] = marginals[tag_idx][word_idx] * scorer.score_emission(sentence, tag_idx, word_idx)
+                    features[feature] = np.exp(marginals[tag_idx][word_idx] + scorer.score_emission(sentence, tag_idx, word_idx))
 
     marginal = Counter(features)
     gold = Counter(full_feat.astype(int))
