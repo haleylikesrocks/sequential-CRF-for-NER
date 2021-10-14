@@ -4,6 +4,7 @@
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
+
     {
       "name": "NER HMM",
       "type": "python",
@@ -19,6 +20,14 @@
       "program": "ner.py",
       "console": "integratedTerminal",
       "args": ["--model", "CRF", "--inference", "VITERBI", "--train_path", "data/eng_try.train", "--dev_path", "data/eng_try.train"]
+    },
+    {
+
+      "request": "launch",      "name": "test beam",
+      "type": "python",
+      "program": "ner.py",
+      "console": "integratedTerminal",
+      "args": ["--model", "CRF", "--inference", "BEAM", "--train_path", "data/eng_try.train", "--dev_path", "data/eng_try.train", "--crf_model_path", "crf_model_full.plk"]
     }
   ]
 }
