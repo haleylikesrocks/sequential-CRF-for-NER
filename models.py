@@ -466,25 +466,14 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
         for current_i in range(num_tags):
             tags_for_i = [alpha_matrix[prev_i, idx-1] + scorer.score_transition(sentence, prev_i, current_i) + (scorer.score_emission(sentence, current_i, idx) )for prev_i in range(num_tags)]
             alpha_matrix[current_i][idx] = logsumexp(tags_for_i, 0)
-    # print(alpha_matrix)
     #backward pass
     for idx in range(num_words - 2, -1, -1):
         for current_i in range(num_tags):
             beta_matrix[current_i][idx] = logsumexp([beta_matrix[next_i, idx + 1] + scorer.score_transition(sentence, current_i, next_i) + (scorer.score_emission(sentence, next_i, idx + 1) )for next_i in range(num_tags)], 0)
-    # print(beta_matrix)
 
-    # calcualte expected emssion features
-    denom = []
-    for i in range(len(sentence)):
-        sum = []
-        for j in range(len(tag_indexer)):
-            sum.append(alpha_matrix[j][i] + beta_matrix[j][i])
-        denom.append(logsumexp(sum))
-
-    print(denom)
+    # calcualte gold and expected emssion features
     denominators = logsumexp(np.add(alpha_matrix, beta_matrix), 0)
-    print(denominators)
-
+    # print(denominators) #check for normilization
     for word_idx in range(len(sentence)):
         gold_tag_index = tag_indexer.index_of(sentence.get_bio_tags()[word_idx])
         full_feat = np.append(full_feat, scorer.feat_cache[word_idx][gold_tag_index])
@@ -497,7 +486,8 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
                     features[feature] += marginals[tag_idx][word_idx] 
                 else:
                     features[feature] = marginals[tag_idx][word_idx]
-    print(np.sum(marginals,0)) # marginals check
+    # print(np.sum(marginals,0)) # marginals check
+    
     probs = logsumexp([scorer.score_emission(sentence, tag_indexer.index_of(sentence.get_bio_tags()[i]) ,i) for i in range(len(sentence))])
 
     marginal = Counter(features)
