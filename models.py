@@ -453,7 +453,7 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
         gold_tag_index = tag_indexer.index_of(sentence.get_bio_tags()[word_idx])
         full_feat = np.append(full_feat, scorer.feat_cache[word_idx][gold_tag_index])
 
-    probs = sum([scorer.score_emission(sentence, tag_indexer.index_of(sentence.get_bio_tags()[i]) ,i) for i in range(len(sentence))])
+    probs = logsumexp([scorer.score_emission(sentence, tag_indexer.index_of(sentence.get_bio_tags()[i]) ,i) for i in range(len(sentence))])
     
     # calculate the marginal prob using forward back ward
     num_tags = len(tag_indexer)
@@ -467,7 +467,7 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
         # subsequent
         else:
             for current_i in range(num_tags):
-                tags_for_i = [alpha_matrix[prev_i, idx-1] * scorer.score_transition(sentence, prev_i, current_i) * (scorer.score_emission(sentence, current_i, idx) )for prev_i in range(num_tags)]
+                tags_for_i = [alpha_matrix[prev_i, idx-1] + scorer.score_transition(sentence, prev_i, current_i) + (scorer.score_emission(sentence, current_i, idx) )for prev_i in range(num_tags)]
                 alpha_matrix[current_i][idx] = logsumexp(tags_for_i, 0)
     # print(alpha_matrix)
 
@@ -480,7 +480,7 @@ def compute_gradient(sentence: LabeledSentence, tag_indexer: Indexer, scorer: Fe
                 beta_matrix[i][idx] = 0.0
         else:
             for current_i in range(num_tags):
-                beta_matrix[current_i][idx] = logsumexp([beta_matrix[next_i, idx + 1] * scorer.score_transition(sentence, current_i, next_i) * (scorer.score_emission(sentence, current_i, idx) )for next_i in range(num_tags)], 0)
+                beta_matrix[current_i][idx] = logsumexp([beta_matrix[next_i, idx + 1] + scorer.score_transition(sentence, current_i, next_i) + (scorer.score_emission(sentence, current_i, idx) )for next_i in range(num_tags)], 0)
     # print(beta_matrix)
 
     # calcualte expected emssion features
