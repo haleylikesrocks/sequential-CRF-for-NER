@@ -287,11 +287,11 @@ class CrfNerModel(object):
         num_tags = len(self.tag_indexer)
         current_beam = Beam(beam_size)
         next_beam = Beam(beam_size)
-        prev = np.zeros((num_tags, num_words) - 1))
+        prev = np.zeros((num_tags, num_words) - 1)
 
         #calculate feature chache
         feature_cache = [[[] for k in range(0, num_tags)] for i in range(0, num_words)]
-        for word_idx in range(0, num_words)):
+        for word_idx in range(0, num_words):
             for tag_idx in range(0, num_tags):
                 feature_cache[word_idx][tag_idx] = extract_emission_features(sentence_tokens, word_idx, self.tag_indexer.get_object(tag_idx), self.feature_indexer, add_to_indexer=False)
         scorer = FeatureBasedSequenceScorer(self.tag_indexer, self.feature_weights, feature_cache)
@@ -307,15 +307,11 @@ class CrfNerModel(object):
                 for current_i in range(num_tags):
                     next_beam.add(current_i, scores[i] + scorer.score_transition(sentence_tokens, tags[i], current_i) + scorer.score_emission(sentence_tokens, current_i, token))
             current_beam = next_beam
+            
+            prev[current_i, token-1] = tags[np.argmax(tags_for_i)]
 
-                    tags_for_i = [scores[prev_i] + scorer.score_transition(sentence_tokens, tags[prev_i], current_i) for prev_i in range(len(tags))] # for prev_i in beam
-                    next_beam.add(i, tags_for_i[np.argmax(tags_for_i)] + scorer.score_emission(sentence_tokens, current_i, token))
-                    prev[current_i, token-1] = tags[np.argmax(tags_for_i)]
-                    # add to beam 
-            current_beam = next_beam
         # finding the best sentence through back pass
-        tags, scores = zip(*current_beam.get_elts_and_scores())
-        last_sate = tags[np.argmax(np.array(scores))]
+        last_sate = next_beam.head()
         best_indices = np.zeros(len(sentence_tokens))
         best_indices[0] = last_sate
 
