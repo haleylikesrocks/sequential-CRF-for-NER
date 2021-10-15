@@ -283,7 +283,6 @@ class CrfNerModel(object):
         num_words = len(sentence_tokens)
         num_tags = len(self.tag_indexer)
         current_beam = Beam(beam_size)
-        next_beam = Beam(beam_size)
 
         #calculate feature chache
         feature_cache = [[[] for k in range(0, len(self.tag_indexer))] for i in range(0, len(sentence_tokens))]
@@ -298,6 +297,7 @@ class CrfNerModel(object):
 
         for token in range(1, num_words):
             tags, scores = zip(*list(current_beam.get_elts_and_scores()))
+            next_beam = Beam(beam_size)
             for i in range(beam_size):
                 for current_i in range(num_tags):
                     seq = tags[i] + [current_i]
@@ -306,9 +306,12 @@ class CrfNerModel(object):
 
         # convert Index to Tag
         last_state = current_beam.head()
+        # print(len(last_state))
+        # print(len(sentence_tokens))
+        # print('')
         for tag in last_state:
             pred_tags.append(self.tag_indexer.get_object(tag))
-            
+
         return LabeledSentence(sentence_tokens, chunks_from_bio_tag_seq(pred_tags))
 
 
