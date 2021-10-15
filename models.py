@@ -243,17 +243,14 @@ class CrfNerModel(object):
         matrix = np.zeros((num_tags, len(sentence_tokens)))
         prev = np.zeros((num_tags, len(sentence_tokens) - 1))
 
-        for token in range(len(sentence_tokens)):
-            # initial probalities
-            if token == 0:
-                for i in range(num_tags):
-                    matrix[i][0] = scorer.score_init(sentence_tokens, i) + scorer.score_emission(sentence_tokens, i, token)
-            # subsequent
-            else:
-                for current_i in range(num_tags):
-                    tags_for_i = [matrix[prev_i, token-1] + scorer.score_transition(sentence_tokens, prev_i, current_i) for prev_i in range(num_tags)]
-                    matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + scorer.score_emission(sentence_tokens, current_i, token) # what to do if word no good
-                    prev[current_i, token-1] = np.argmax(tags_for_i)
+        for i in range(num_tags):
+            matrix[i][0] = scorer.score_init(sentence_tokens, i) + scorer.score_emission(sentence_tokens, i, 0)
+        
+        for token in range(1, len(sentence_tokens)):
+            for current_i in range(num_tags):
+                tags_for_i = [matrix[prev_i, token-1] + scorer.score_transition(sentence_tokens, prev_i, current_i) for prev_i in range(num_tags)]
+                matrix[current_i][token] = tags_for_i[np.argmax(tags_for_i)] + scorer.score_emission(sentence_tokens, current_i, token) # what to do if word no good
+                prev[current_i, token-1] = np.argmax(tags_for_i)
 
         # finding the best sentence through back pass
         last_sate = np.argmax(matrix, 0)[-1]
@@ -281,7 +278,7 @@ class CrfNerModel(object):
         :param sentence_tokens: List of the tokens in the sentence to tag
         :return: The LabeledSentence consisting of predictions over the sentence
         """
-        beam_size = 9
+        beam_size = 2
         pred_tags = []
         num_words = len(sentence_tokens)
         num_tags = len(self.tag_indexer)
@@ -289,12 +286,12 @@ class CrfNerModel(object):
         next_beam = Beam(beam_size)
 
         #calculate feature chache
-        feature_cache = [[[] for k in range(0, num_tags)] for i in range(0, num_words)]
-        for word_idx in range(0, num_words):
-            for tag_idx in range(0, num_tags):
+        feature_cache = [[[] for k in range(0, len(self.tag_indexer))] for i in range(0, len(sentence_tokens))]
+        for word_idx in range(0, len(sentence_tokens)):
+            for tag_idx in range(0, len(self.tag_indexer)):
                 feature_cache[word_idx][tag_idx] = extract_emission_features(sentence_tokens, word_idx, self.tag_indexer.get_object(tag_idx), self.feature_indexer, add_to_indexer=False)
         scorer = FeatureBasedSequenceScorer(self.tag_indexer, self.feature_weights, feature_cache)
-        
+
         # Intialize Beam 
         for i in range(num_tags):
             current_beam.add([i], scorer.score_init(sentence_tokens, i) + scorer.score_emission(sentence_tokens, i, 0))
@@ -311,6 +308,7 @@ class CrfNerModel(object):
         last_state = current_beam.head()
         for tag in last_state:
             pred_tags.append(self.tag_indexer.get_object(tag))
+            
         return LabeledSentence(sentence_tokens, chunks_from_bio_tag_seq(pred_tags))
 
 
