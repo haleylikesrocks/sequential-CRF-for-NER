@@ -278,7 +278,7 @@ class CrfNerModel(object):
         :param sentence_tokens: List of the tokens in the sentence to tag
         :return: The LabeledSentence consisting of predictions over the sentence
         """
-        beam_size = 2
+        beam_size = 4
         pred_tags = []
         num_words = len(sentence_tokens)
         num_tags = len(self.tag_indexer)
@@ -306,9 +306,6 @@ class CrfNerModel(object):
 
         # convert Index to Tag
         last_state = current_beam.head()
-        # print(len(last_state))
-        # print(len(sentence_tokens))
-        # print('')
         for tag in last_state:
             pred_tags.append(self.tag_indexer.get_object(tag))
 
