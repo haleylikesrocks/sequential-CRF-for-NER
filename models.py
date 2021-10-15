@@ -281,13 +281,12 @@ class CrfNerModel(object):
         :param sentence_tokens: List of the tokens in the sentence to tag
         :return: The LabeledSentence consisting of predictions over the sentence
         """
-        beam_size = 2
+        beam_size = 9
         pred_tags = []
         num_words = len(sentence_tokens)
         num_tags = len(self.tag_indexer)
         current_beam = Beam(beam_size)
         next_beam = Beam(beam_size)
-        prev = np.zeros((num_tags, num_words) - 1)
 
         #calculate feature chache
         feature_cache = [[[] for k in range(0, num_tags)] for i in range(0, num_words)]
@@ -295,36 +294,22 @@ class CrfNerModel(object):
             for tag_idx in range(0, num_tags):
                 feature_cache[word_idx][tag_idx] = extract_emission_features(sentence_tokens, word_idx, self.tag_indexer.get_object(tag_idx), self.feature_indexer, add_to_indexer=False)
         scorer = FeatureBasedSequenceScorer(self.tag_indexer, self.feature_weights, feature_cache)
-
         
         # Intialize Beam 
         for i in range(num_tags):
-            current_beam.add(i, scorer.score_init(sentence_tokens, i) + scorer.score_emission(sentence_tokens, i, 0))
+            current_beam.add([i], scorer.score_init(sentence_tokens, i) + scorer.score_emission(sentence_tokens, i, 0))
 
         for token in range(1, num_words):
             tags, scores = zip(*list(current_beam.get_elts_and_scores()))
             for i in range(beam_size):
                 for current_i in range(num_tags):
-                    next_beam.add(current_i, scores[i] + scorer.score_transition(sentence_tokens, tags[i], current_i) + scorer.score_emission(sentence_tokens, current_i, token))
+                    seq = tags[i] + [current_i]
+                    next_beam.add(seq, scores[i] + scorer.score_transition(sentence_tokens, tags[i][-1], current_i) + scorer.score_emission(sentence_tokens, current_i, token))
             current_beam = next_beam
-            
-            prev[current_i, token-1] = tags[np.argmax(tags_for_i)]
 
-        # finding the best sentence through back pass
-        last_sate = next_beam.head()
-        best_indices = np.zeros(len(sentence_tokens))
-        best_indices[0] = last_sate
-
-        back_track = 1
-        for i in range(len(sentence_tokens) - 2, -1, -1):
-            best_indices[back_track] = prev[int(last_sate), i]
-            last_sate = prev[int(last_sate), i]
-            back_track += 1
-
-        best_indices =  np.flip(best_indices, 0)
-
-        # # convert index to tag
-        for tag in best_indices:
+        # convert Index to Tag
+        last_state = current_beam.head()
+        for tag in last_state:
             pred_tags.append(self.tag_indexer.get_object(tag))
         return LabeledSentence(sentence_tokens, chunks_from_bio_tag_seq(pred_tags))
 
